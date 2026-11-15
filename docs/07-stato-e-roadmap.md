@@ -22,9 +22,7 @@ Documento vivo: aggiornalo a ogni tentativo. È la memoria del progetto.
 
 | Cosa | Perché | Quando si saprà |
 |---|---|---|
-| **La ROM completa non è mai stata costruita** | Nell'ambiente in cui è stato scritto il repository il download dei firmware Samsung non era consentito | Prima esecuzione di `./build.sh` o del workflow |
 | I valori `[VERIFY]` di `config.sh` che il probe non controlla | Il probe non li può controllare: vedi attività aperta 1 | Decompilazione di `framework.jar`/`services.jar` stock |
-| La ROM entra in 6,13 GiB | Dipende dal firmware reale | Prima build completa |
 | **Il tablet si avvia** | Nessun test su hardware | Primo flash |
 | Funzionamento di Wi-Fi, audio, fotocamera, S Pen, sensori, DeX | Idem | Dopo il primo avvio |
 | Interfaccia tablet corretta partendo da un firmware da telefono | Idem | Dopo il primo avvio |
@@ -47,10 +45,32 @@ Documento vivo: aggiornalo a ogni tentativo. È la memoria del progetto.
     doppio altoparlante confermato `true` da `AUDIO_NUMBER_OF_SPEAKER=2` (il firmware
     non ha più la voce `AUDIO_SUPPORT_DUAL_SPEAKER`)
 
-### Fase B — Prima build completa
-- [ ] `mode = rom`; risolvere gli arresti (vedi troubleshooting, Fase 0)
-- [ ] Far rientrare la ROM nella `super` (`size_report.sh` → `debloat.sh`)
-- [ ] Controllare `skipped_patches.txt`
+### Fase B — Prima build completa — completata il 15 novembre 2026
+- [x] Build completa (`./build.sh`): zip flashabile prodotto, **mai flashato**
+- [x] Far rientrare la ROM nella `super`: 6 240 035 712 byte su 6 580 862 976
+      (margine di circa 325 MiB). Ottenuto con:
+  - sfondi video dell'S26 sostituiti dalle immagini fisse (805 MB, `patches/wallpaper`)
+  - debloat: AOD, AR Emoji, Bixby e servizi vocali collegati (`debloat.sh`)
+  - EROFS con cluster da 64 KiB (`-C 65536`), circa 420 MiB in meno su `system`
+- [x] `skipped_patches.txt`: 2 patch saltate, entrambe della base e non del tablet
+  - `mdnie/hdr/api37/SecSettings.apk/0001-Disable-HDR-Settings.patch`: non si applica
+    al firmware `S942BXXS6BZK1`. Possibile effetto: voci HDR visibili nelle Impostazioni
+  - `mdnie/hw/services.jar/0001-Disable-HW-mDNIe.patch`: rinviata dalla base
+
+Correzioni alla base applicate da `setup.sh` (ognuna è commentata lì): reset IMEI
+nel download, ramo "nessun eSE" per sorgente GEMALTO, HAL volto AIDL, patch `netd`
+per l'hotspot su kernel 4.14, lettore di impronte `none`, metodo della frequenza
+predefinita, Wi-Fi 6 → Wi-Fi 5, matrice FCM 4, firma di Samsung Internet, metodo
+ASKS spostato, modelli Single Take assenti nel vendor, cluster EROFS.
+
+**Da verificare al primo avvio** (scelte fatte senza poterle provare):
+- vendor di livello FCM 4 sotto Android 17: la build passa, l'avvio non è garantito
+- i 5 HAL a 32 bit del vendor non hanno fermato la build: restano da provare
+- patch binaria di `netd` scritta per questo port (hotspot)
+- 6 GHz disattivato nel framework; possibili voci Wi-Fi 6 residue nelle Impostazioni
+- `TARGET_FINGERPRINT_CONFIG_SENSOR="none"`: se sbagliato, voce impronte non funzionante
+- file Single Take / AR Emoji vuoti; AOD rimosso dalle floating feature
+- prestazioni di lettura con cluster EROFS da 64 KiB (ripiego: 16 KiB + altro debloat)
 
 ### Fase C — Primo avvio
 - [ ] **Prima di flashare**: salvare da stock `getprop`, `dmesg`, `lshal`
@@ -120,3 +140,4 @@ Aggiungi una riga per ogni build/flash.
 |---|---|---|---|---|---|
 | 2026-11-15 | iniziale | solo kernel | ok | — | Kernel 4.14.357 compilato, modulo boot provato con immagine di test |
 | 2026-11-15 | cfd0c90 + correzioni | probe | ok | Fase A | Firmware S942BXXS6BZK1 e P610XXS7FYD1 scaricati ed estratti; verifica 0 FAIL / 0 WARN. Corretti: dipendenze host mancanti in docs/03, identità git in `build.sh`, IMEI non azzerato in `download_fw.sh` della base (FUS 408) |
+| 2026-11-15 | Fase B | ROM completa | ok | zip prodotto | `UN1CA_4.0.0-bf0d024-dirty_20261115_gta4xlwifi-sign.zip`, 5,39 GB; OS 6,24 GB su 6,58 GB. 13 arresti risolti (vedi Fase B). Non flashato |

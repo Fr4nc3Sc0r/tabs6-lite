@@ -9,3 +9,8 @@
 # from BOTH files. Format: SEC_FLOATING_FEATURE_NAME=value (empty = delete).
 
 SEC_FLOATING_FEATURE_SETTINGS_CONFIG_BRAND_NAME=Galaxy Tab S6 Lite
+
+# The base always keeps the source phone's always-on display feature list. The
+# tablet has an LCD panel and no always-on display: its stock firmware does not
+# declare this feature at all, so drop it (it also needs phone-only resources).
+SEC_FLOATING_FEATURE_FRAMEWORK_CONFIG_AOD_ITEM=

@@ -7,6 +7,7 @@
 #
 #   vintf/compatibility_matrix.device.xml   <- /system/etc/vintf/
 #   camera/camera-feature.xml               <- /system/cameradata/
+#   camera/singletake/, camera/aremoji-...   <- /system/cameradata/ (empty if absent)
 #   overlay/                                <- res/ of the stock framework-res product RRO
 #   dvfs/<dvfs policy>.xml                  <- res/raw/ of the stock SDHMS app
 #
@@ -44,8 +45,24 @@ else
     warn "stock camera-feature.xml not found (build will need --debug)"
 fi
 
+# --- Single Take / AR Emoji feature lists ---------------------------------------
+# The base copies these two from the stock firmware and aborts if they are not
+# there. The tablet ships neither feature: use the stock file when it exists,
+# otherwise an empty list (every option at its default, nothing enabled).
+for REL in "singletake/service-feature.xml" "aremoji-feature.xml"; do
+    SRC="$STOCK_DIR/system/system/cameradata/$REL"
+    mkdir -p "$(dirname "$TARGET_DIR/camera/$REL")"
+    if [ -f "$SRC" ]; then
+        cp -f "$SRC" "$TARGET_DIR/camera/$REL"
+        ok "camera/$REL"
+    else
+        printf '<?xml version="1.0" encoding="UTF-8"?>\n<resources>\n</resources>\n' > "$TARGET_DIR/camera/$REL"
+        ok "camera/$REL (not in stock firmware: empty list)"
+    fi
+done
+
 # --- framework-res product overlay (display, power profile, brightness...) ---
-APK="$(find "$STOCK_DIR/product/overlay" -maxdepth 1 -type f -name "framework-res__*__auto_generated_rro_product.apk" 2> /dev/null | head -n 1)"
+APK="$(find "$STOCK_DIR/product/overlay" -maxdepth 1 -type f -name "framework-res__*auto_generated_rro_product.apk" 2> /dev/null | head -n 1)"
 if [ "$APK" ]; then
     if apktool d -f -s -o "$GEN_TMP/rro" "$APK" > "$GEN_TMP/rro.log" 2>&1 && [ -d "$GEN_TMP/rro/res" ]; then
         rm -rf "$TARGET_DIR/overlay"
