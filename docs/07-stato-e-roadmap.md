@@ -89,9 +89,73 @@ regole SELinux, proprietà del vendor che `init` di Android 17 può rifiutare.
 Con queste patch il sistema occupa 6 302 744 576 byte su 6 580 862 976 (margine di
 circa 265 MiB).
 
+**Prove in emulazione, senza tablet** (15 novembre 2026). Due strumenti, da rieseguire
+dopo ogni build; nessuno dei due prova l'hardware del tablet.
+
+1. `tools/emu_check.sh`: esegue i programmi ARM della ROM con `qemu-user`.
+   Genera la configurazione del linker con il `linkerconfig` della ROM, compila la
+   policy SELinux con il suo `secilc`, avvia ogni eseguibile con `LD_BIND_NOW=1` e
+   controlla dipendenze e simboli di ogni libreria, confrontando il vendor con il
+   firmware stock. Report in `un1ca/out/emu_check-report.md`.
+2. `tools/vm_boot.sh`: "tablet virtuale". Avvia in QEMU il kernel del tablet
+   (stessa configurazione più i driver virtio) con le immagini della ROM. Report in
+   `un1ca/out/vm_boot-report.md`.
+
+Difetti trovati così e corretti (ognuno avrebbe richiesto un flash per scoprirlo):
+
+- **zygote non collegabile**: la patch S Pen della base sostituiva
+  `libandroid_runtime.so` con un prebuilt Android 16 → bootloop certo (`setup.sh`)
+- **identità sbagliata**: il tablet si presentava come `SM-S942B` / `m1sxxx`, perché
+  `/odm` viene dal telefono sorgente (`patches/tablet`)
+- **interfaccia da telefono**: `/product` riportava `ro.build.characteristics` a
+  `phone` dopo che `/system` lo metteva a `tablet` (`patches/tablet`)
+- proprietà `exynos.wlbtlog.path` rifiutata da init (`patches/android17_compat`)
+- **audio**: il vendor dichiara l'HAL audio 5.0, Android 17 ha client solo per 6.0,
+  7.x e AIDL → `audioserver` in crash a ogni avvio. Il vendor contiene già
+  l'implementazione 6.0: dichiarata nel manifest (`patches/android17_compat`).
+  Verificato nel tablet virtuale: l'HAL si registra a 6.0 e `audioserver` resta attivo
+- **driver grafico non trovato**: il caricatore EGL di Android 17 cerca solo
+  `libGLES_<nome>.so` con il nome preso da `ro.hardware.egl` o `ro.board.platform`;
+  il vendor ha `libGLES_mali.so` e nessuna delle due proprietà lo indicava →
+  SurfaceFlinger abortiva. Impostato `ro.hardware.egl=mali`
+- **motore di composizione**: SurfaceFlinger sceglieva Vulkan e, se non riesce a
+  inizializzarlo, abortisce senza ripiego. Forzato OpenGL ES (`skiaglthreaded`),
+  l'unico percorso con cui il driver Mali del vendor è stato distribuito. Che Vulkan
+  fallisca sul tablet vero non è stato osservato: è una scelta prudente
+
+Verificato nel tablet virtuale, cioè eseguito davvero sul kernel 4.14 del tablet:
+init di primo stadio (ramdisk stock Android 13), montaggio delle immagini EROFS con
+cluster da 64 KiB, compilazione e caricamento della policy SELinux nel kernel,
+init di secondo stadio con tutti i file `.rc`, ueventd, apexd, cgroup, f2fs su
+`/data`, `servicemanager`/`hwservicemanager`, caricatore BPF di rete (vede il
+kernel come 5.10 grazie alla patch `uname` e carica `netd.o`), avvio dello zygote
+fino al precaricamento delle classi, servizi a 32 bit del vendor (audio, Widevine),
+apertura dell'HAL audio Exynos, ripiego su gralloc 2.x.
+
+Limiti del tablet virtuale: non c'è il TEE, quindi keymaster/keystore non
+funzionano e le attese relative sono saltate (solo nelle copie di prova); non ci
+sono GPU, display, Wi-Fi, fotocamera. SurfaceFlinger e gatekeeper si fermano per
+questo e riavviano lo zygote: oltre quel punto la prova non è significativa, quindi
+`system_server` e l'interfaccia non sono mai stati eseguiti.
+
+Osservazioni da tenere presenti, non bloccanti:
+
+- alcuni programmi BPF di piattaforma non si caricano sul 4.14 (`timeInState`,
+  `kernelWakelockDuration`, `dmabufIter`): statistiche di consumo incomplete
+- `libsmpsft.smps.samsung.so` (suoni S Pen, prebuilt Android 16) ha un simbolo
+  irrisolto: i suoni di scrittura della penna non funzioneranno. La soluzione
+  pulita è prendere i file S Pen da un firmware One UI 9 con S Pen
+- 4 librerie a 32 bit del vendor (`libFaceService`, `libcamera2ndk_vendor`,
+  `libheifcapture`, `libsimba.media`) non trovano ICU a 32 bit; non risultano usate
+  dai 5 servizi a 32 bit
+- init rifiuta dal vendor proprietà di rete mobile, DNS e numeri di emergenza
+  (irrilevanti su un tablet Wi-Fi) e ignora due regole di `/vendor/ueventd.rc`
+
 **Da verificare al primo avvio** (scelte fatte senza poterle provare):
-- vendor di livello FCM 4 sotto Android 17: la build passa, l'avvio non è garantito
-- i 5 HAL a 32 bit del vendor: dipendenze verificate, esecuzione da provare
+- tutto ciò che dipende dal TEE: keymaster, keystore, gatekeeper, blocco schermo
+- display, HWC e gralloc Exynos con SurfaceFlinger di Android 17
+- vendor di livello FCM 4: nel tablet virtuale init e i service manager lo accettano
+- i 5 HAL a 32 bit del vendor: collegamento verificato in emulazione, funzionamento con l'hardware da provare
 - librerie stock di engmode/vaultkeeper sotto One UI 9 (engmode: compatibilità non dimostrata)
 - patch binaria di `netd` scritta per questo port (hotspot)
 - 6 GHz disattivato nel framework; possibili voci Wi-Fi 6 residue nelle Impostazioni
@@ -168,3 +232,4 @@ Aggiungi una riga per ogni build/flash.
 | 2026-11-15 | iniziale | solo kernel | ok | — | Kernel 4.14.357 compilato, modulo boot provato con immagine di test |
 | 2026-11-15 | cfd0c90 + correzioni | probe | ok | Fase A | Firmware S942BXXS6BZK1 e P610XXS7FYD1 scaricati ed estratti; verifica 0 FAIL / 0 WARN. Corretti: dipendenze host mancanti in docs/03, identità git in `build.sh`, IMEI non azzerato in `download_fw.sh` della base (FUS 408) |
 | 2026-11-15 | Fase B + controlli statici | ROM completa | ok | zip prodotto | `UN1CA_4.0.0-bf0d024-dirty_20261115_gta4xlwifi-sign.zip`, 5,44 GB; OS 6,30 GB su 6,58 GB. 13 arresti di build risolti e 2 patch nate dai controlli statici (vedi Fase B). Non flashato |
+| 2026-11-15 | emulazione | ROM completa | ok | zygote nel tablet virtuale | `tools/emu_check.sh` e `tools/vm_boot.sh`: 7 difetti di avvio trovati e corretti senza tablet (zygote, identità, tablet/phone, audio 5.0, EGL, motore Vulkan, proprietà). Non flashato |

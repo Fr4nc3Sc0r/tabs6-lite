@@ -107,3 +107,16 @@ clang 18.1.3: produce `Linux version 4.14.357` (~38 MB).
 Con ogni probabilità **non andrà a buon fine al primo colpo**. Gli arresti più
 probabili, in ordine, e cosa fare, sono in
 [06-troubleshooting.md](06-troubleshooting.md#fase-0--la-build-non-termina).
+
+## Verifica senza tablet
+
+Dopo `./build.sh`, prima di flashare:
+
+```bash
+sudo apt install qemu-user-static qemu-system-arm
+tools/emu_check.sh        # collegamento di programmi e librerie, policy SELinux
+tools/vm_boot.sh          # avvio nel tablet virtuale (QEMU), 10 minuti
+```
+
+Servono i permessi `sudo` (montaggi e chroot). Cosa provano e cosa no è spiegato
+in [07-stato-e-roadmap.md](07-stato-e-roadmap.md).

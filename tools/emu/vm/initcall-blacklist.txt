@@ -1,0 +1,12 @@
+exynos_cpupm_early_init
+exynos_protect_kernel_text
+exynos_chipid_init
+exynos_set_debug_mem
+exynos_set_seh_address
+exynos_pm_drvinit
+exynos_acpm_binary_update
+hdcp_init
+exyswd_rng_init
+init_tzdev
+exynos_gpu_cooling_init
+sec_debug_extra_info_init

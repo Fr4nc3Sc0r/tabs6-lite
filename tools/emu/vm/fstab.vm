@@ -1,0 +1,11 @@
+# fstab of the QEMU "virtual tablet": the stock one with virtio disks, no AVB, no dynamic partitions
+/dev/block/vda	/system	erofs	ro	wait,first_stage_mount
+/dev/block/vdb	/vendor	erofs	ro	wait,first_stage_mount
+/dev/block/vdc	/product	erofs	ro	wait,first_stage_mount
+/dev/block/vdd	/odm	erofs	ro	wait,first_stage_mount
+/dev/block/vde	/metadata	ext4	noatime,nosuid,nodev,noauto_da_alloc,discard,journal_checksum,data=ordered,errors=panic,sync	wait,first_stage_mount,formattable
+# ext4 and "sync" instead of f2fs: the PC reads the Android log back from this disk (the f2fs mount was verified before)
+/dev/block/vdf	/data	ext4	noatime,nosuid,nodev,noauto_da_alloc,sync	latemount,wait,check,quota,reservedsize=128M
+/dev/block/vdg	/cache	ext4	noatime,nosuid,nodev,noauto_da_alloc,discard,journal_checksum,data=ordered,errors=panic	wait,check
+/dev/block/vdh	/mnt/vendor/efs	ext4	noatime,nosuid,nodev,noauto_da_alloc,discard,journal_checksum,data=ordered,errors=panic	wait,check
+/dev/block/zram0	none	swap	defaults	zramsize=1073741824,max_comp_streams=8
