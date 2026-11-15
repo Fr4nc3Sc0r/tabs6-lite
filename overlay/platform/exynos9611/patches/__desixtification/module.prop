@@ -1,0 +1,4 @@
+id=exynos9611_desixtification
+name=Exynos 9611: 32-bit vendor compatibility
+author=tabs6-lite, kusti420
+description=The One UI 9 system of the Galaxy S26 is 64-bit only, while the Exynos 9611 vendor still runs audio, camera provider, OMX, Widevine and CAS as 32-bit processes and asks for a 64+32-bit zygote. Adds the 32-bit linker, bionic and /system/lib set built from the same AOSP release (CP2A.260605.016) and selects the 64-bit-only zygote. Runs the a52sxq implementation of the base, which solves the same problem.

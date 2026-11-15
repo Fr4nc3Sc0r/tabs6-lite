@@ -48,7 +48,7 @@ Documento vivo: aggiornalo a ogni tentativo. È la memoria del progetto.
 ### Fase B — Prima build completa — completata il 15 novembre 2026
 - [x] Build completa (`./build.sh`): zip flashabile prodotto, **mai flashato**
 - [x] Far rientrare la ROM nella `super`: 6 240 035 712 byte su 6 580 862 976
-      (margine di circa 325 MiB). Ottenuto con:
+      (margine di circa 325 MiB prima delle patch a 32 bit, vedi sotto). Ottenuto con:
   - sfondi video dell'S26 sostituiti dalle immagini fisse (805 MB, `patches/wallpaper`)
   - debloat: AOD, AR Emoji, Bixby e servizi vocali collegati (`debloat.sh`)
   - EROFS con cluster da 64 KiB (`-C 65536`), circa 420 MiB in meno su `system`
@@ -63,9 +63,36 @@ per l'hotspot su kernel 4.14, lettore di impronte `none`, metodo della frequenza
 predefinita, Wi-Fi 6 → Wi-Fi 5, matrice FCM 4, firma di Samsung Internet, metodo
 ASKS spostato, modelli Single Take assenti nel vendor, cluster EROFS.
 
+**Controlli statici sulle immagini costruite** (non esiste un emulatore di questo
+hardware: sono l'unica verifica possibile prima del flash). Hanno trovato problemi
+che avrebbero impedito l'avvio, risolti con due patch di piattaforma:
+
+- `patches/__desixtification`: il sistema S26 è solo a 64 bit, il vendor ha 5 servizi
+  a 32 bit (audio, fotocamera, OMX, Widevine, CAS) e chiedeva `zygote64_32`. Aggiunti
+  linker, bionic e `/system/lib` a 32 bit (prebuilt `ichthys32` della base, stessa
+  build AOSP `CP2A.260605.016` del sistema); zygote solo a 64 bit. Verificato: i 71
+  programmi e plugin a 32 bit del vendor risolvono tutte le dipendenze e dal sistema
+  usano solo librerie LLNDK
+- `patches/android17_compat`: `/vendor/ueventd.rc` in posizione non più letta,
+  etichetta di `/dev/ion`, `mremap` nella policy seccomp del codec, controller cgroup
+  `sfreezer` assente nel kernel, porta di tracing vsock, `rkp_only`, librerie client
+  HIDL di engmode e vaultkeeper dal firmware stock
+
+Entrambe eseguono le implementazioni che la base ha per `a52sxq` (stesso tipo di
+vendor vecchio). Le circa 45 patch di quel target sono un buon elenco di controllo
+per i problemi che compariranno dopo l'avvio.
+
+Risultano a posto: VNDK 33, `hwservicemanager`, mappature SELinux 33.0, fstab EROFS
+nella ramdisk e nel vendor. Non verificati: VINTF completo (manca `checkvintf`),
+regole SELinux, proprietà del vendor che `init` di Android 17 può rifiutare.
+
+Con queste patch il sistema occupa 6 302 744 576 byte su 6 580 862 976 (margine di
+circa 265 MiB).
+
 **Da verificare al primo avvio** (scelte fatte senza poterle provare):
 - vendor di livello FCM 4 sotto Android 17: la build passa, l'avvio non è garantito
-- i 5 HAL a 32 bit del vendor non hanno fermato la build: restano da provare
+- i 5 HAL a 32 bit del vendor: dipendenze verificate, esecuzione da provare
+- librerie stock di engmode/vaultkeeper sotto One UI 9 (engmode: compatibilità non dimostrata)
 - patch binaria di `netd` scritta per questo port (hotspot)
 - 6 GHz disattivato nel framework; possibili voci Wi-Fi 6 residue nelle Impostazioni
 - `TARGET_FINGERPRINT_CONFIG_SENSOR="none"`: se sbagliato, voce impronte non funzionante
@@ -140,4 +167,4 @@ Aggiungi una riga per ogni build/flash.
 |---|---|---|---|---|---|
 | 2026-11-15 | iniziale | solo kernel | ok | — | Kernel 4.14.357 compilato, modulo boot provato con immagine di test |
 | 2026-11-15 | cfd0c90 + correzioni | probe | ok | Fase A | Firmware S942BXXS6BZK1 e P610XXS7FYD1 scaricati ed estratti; verifica 0 FAIL / 0 WARN. Corretti: dipendenze host mancanti in docs/03, identità git in `build.sh`, IMEI non azzerato in `download_fw.sh` della base (FUS 408) |
-| 2026-11-15 | Fase B | ROM completa | ok | zip prodotto | `UN1CA_4.0.0-bf0d024-dirty_20261115_gta4xlwifi-sign.zip`, 5,39 GB; OS 6,24 GB su 6,58 GB. 13 arresti risolti (vedi Fase B). Non flashato |
+| 2026-11-15 | Fase B + controlli statici | ROM completa | ok | zip prodotto | `UN1CA_4.0.0-bf0d024-dirty_20261115_gta4xlwifi-sign.zip`, 5,44 GB; OS 6,30 GB su 6,58 GB. 13 arresti di build risolti e 2 patch nate dai controlli statici (vedi Fase B). Non flashato |

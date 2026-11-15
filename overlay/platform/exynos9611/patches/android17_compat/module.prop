@@ -1,0 +1,4 @@
+id=exynos9611_android17_compat
+name=Exynos 9611: Android 13 vendor and 4.14 kernel under Android 17
+author=tabs6-lite, kusti420
+description=Things Android 17 dropped or made mandatory that the stock Android 13 vendor and the 4.14 kernel of the Exynos 9611 tablets still rely on: the legacy /vendor/ueventd.rc location, the /dev/ion label, the mremap flags allowed by the vendor seccomp policies, cgroup controllers the kernel does not have, a vsock tracing port, remote key provisioning and the HIDL engmode and vaultkeeper security HALs. Each one was found by inspecting the built images; most run the a52sxq implementations of the base.
