@@ -1,0 +1,82 @@
+From: tabs6-lite <noreply@users.noreply.github.com>
+Subject: [PATCH] kernel/sys: make the BPF loader uname spoof configurable
+
+The tree hardcodes "5.10.239" for bpfloader/netbpfload/netd. Make both the
+scope and the reported release string tunable from the kernel command line
+(uname_bpf_spoof=, uname_bpf_release=) and cover uprobestats too, so a ROM
+whose Tethering APEX raises its kernel floor (5.10 for 25Q4, 5.15 for 26Q4)
+can be handled by changing the boot.img cmdline instead of rebuilding.
+
+---
+--- a/kernel/sys.c	2026-11-15 11:12:08.722781518 +0000
++++ b/kernel/sys.c	2026-11-15 11:12:24.475202950 +0000
+@@ -1195,20 +1195,61 @@
+ 	return ret;
+ }
+ 
++/*
++ * BPF loader uname spoofing.
++ *
++ * The Android BPF loaders (netbpfload in the Tethering APEX, bpfloader, netd,
++ * uprobestats) refuse to run on kernels older than a per-release floor and
++ * reboot the device when they fail. This 4.14 tree carries the required eBPF
++ * backports, so report a newer release string to those processes only.
++ *
++ * Both knobs can be set from the kernel command line (boot.img cmdline):
++ *   uname_bpf_spoof=<0|1|2>   0 = off, 1 = netbpfload only, 2 = all loaders
++ *   uname_bpf_release=<str>   release string reported (default 5.10.239)
++ */
++static int uname_bpf_spoof __read_mostly = 2;
++static char uname_bpf_release[__NEW_UTS_LEN + 1] __read_mostly = "5.10.239";
++
++static int __init uname_bpf_spoof_setup(char *str)
++{
++	int mode;
++
++	if (get_option(&str, &mode) && mode >= 0 && mode <= 2)
++		uname_bpf_spoof = mode;
++	return 1;
++}
++__setup("uname_bpf_spoof=", uname_bpf_spoof_setup);
++
++static int __init uname_bpf_release_setup(char *str)
++{
++	if (str && *str)
++		strlcpy(uname_bpf_release, str, sizeof(uname_bpf_release));
++	return 1;
++}
++__setup("uname_bpf_release=", uname_bpf_release_setup);
++
++static bool uname_bpf_spoof_match(void)
++{
++	if (uname_bpf_spoof == 1)
++		return !strncmp(current->comm, "netbpfload", 10);
++	if (uname_bpf_spoof >= 2)
++		return !strncmp(current->comm, "bpfloader", 9) ||
++		       !strncmp(current->comm, "netbpfload", 10) ||
++		       !strncmp(current->comm, "netd", 4) ||
++		       !strncmp(current->comm, "uprobestats", 11);
++	return false;
++}
++
+ SYSCALL_DEFINE1(newuname, struct new_utsname __user *, name)
+ {
+ 	struct new_utsname tmp;
+ 
+ 	down_read(&uts_sem);
+ 	memcpy(&tmp, utsname(), sizeof(tmp));
+-	if (!strncmp(current->comm, "bpfloader", 9) ||
+-	    !strncmp(current->comm, "netbpfload", 10) ||
+-	    !strncmp(current->comm, "netd", 4)) {
+-		if (current_uid().val == 0) {
+-			strcpy(tmp.release, "5.10.239");
+-			pr_debug("fake uname: %s/%d release=%s\n",
+-				 current->comm, current->pid, tmp.release);
+-		}
++	if (uname_bpf_spoof_match() && current_uid().val == 0) {
++		strlcpy(tmp.release, uname_bpf_release, sizeof(tmp.release));
++		pr_debug("fake uname: %s/%d release=%s\n",
++			 current->comm, current->pid, tmp.release);
+ 	}
+ 	up_read(&uts_sem);
+ 	if (copy_to_user(name, &tmp, sizeof(tmp)))

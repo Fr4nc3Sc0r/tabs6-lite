@@ -1,0 +1,7 @@
+# Base build system checkout (created by setup.sh) and everything it produces
+/un1ca/
+# Never commit firmware or device identifiers
+*.tar.md5
+*.img
+*.lz4
+.env

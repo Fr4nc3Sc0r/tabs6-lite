@@ -1,0 +1,4 @@
+id=gta4xlwifi_tablet
+name=Galaxy Tab S6 Lite: tablet form factor
+author=tabs6-lite
+description=The One UI 9 system comes from a phone (Galaxy S26). Declares the device as a tablet so the framework, SystemUI, the launcher (taskbar) and Samsung apps pick their large screen layouts, as the stock firmware does.

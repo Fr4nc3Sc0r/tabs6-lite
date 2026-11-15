@@ -1,0 +1,107 @@
+name: Build ROM (gta4xlwifi)
+
+# Manual only: a full build downloads ~15 GB of Samsung firmware and takes hours.
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "probe = scarica/estrae i firmware e verifica la configurazione; rom = build completa"
+        type: choice
+        required: true
+        default: probe
+        options: [probe, rom]
+      debug:
+        description: "Build di debug (i file dispositivo mancanti diventano avvisi)"
+        type: boolean
+        default: false
+      csc:
+        description: "CSC del firmware stock SM-P610"
+        type: string
+        default: ITV
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 350
+    env:
+      # Serial number of the tablet: Settings > Secrets and variables > Actions > New repository secret
+      TABS6_SERIAL: ${{ secrets.TABS6_SERIAL }}
+      TABS6_CSC: ${{ inputs.csc }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Check serial number secret
+        run: |
+          if [[ ! "$TABS6_SERIAL" =~ ^R[0-9A-Z]{10}$ ]]; then
+            echo "::error::Secret TABS6_SERIAL mancante o non valido (11 caratteri, inizia con R). Vedi docs/03-build.md"
+            exit 1
+          fi
+
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL \
+            /usr/local/share/boost /usr/share/swift /usr/local/.ghcup
+          sudo docker image prune --all --force > /dev/null
+          df -h /
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          DEBIAN_FRONTEND=noninteractive sudo apt-get install -yq \
+            7zip attr bc binutils bison ccache clang ffmpeg file flex libbrotli-dev libbz2-dev libelf-dev \
+            libgtest-dev libprotobuf-dev libunwind-dev libpcre2-dev libssl-dev libxml2-utils \
+            libzstd-dev linux-modules-extra-$(uname -r) lld llvm lz4 protobuf-compiler rsync webp
+          sudo modprobe erofs f2fs
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Build
+        run: |
+          ARGS=()
+          [[ "${{ inputs.mode }}" == "probe" ]] && ARGS+=(--probe-only)
+          [[ "${{ inputs.debug }}" == "true" ]] && ARGS+=(--debug)
+          ./build.sh "${ARGS[@]}"
+
+      - name: Size report
+        if: ${{ always() && inputs.mode == 'rom' }}
+        run: |
+          cd un1ca && source buildenv.sh gta4xlwifi > /dev/null && ./tabs6-tools/size_report.sh | tee out/size-report.txt || true
+
+      - name: Upload reports and logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: reports-${{ github.run_number }}
+          if-no-files-found: ignore
+          path: |
+            un1ca/out/verify_target-report.md
+            un1ca/out/size-report.txt
+            un1ca/out/skipped_patches.txt
+            un1ca/out/target/gta4xlwifi/*.log
+            un1ca/target/gta4xlwifi/vintf
+            un1ca/target/gta4xlwifi/camera
+            un1ca/target/gta4xlwifi/overlay
+            un1ca/target/gta4xlwifi/dvfs
+
+      - name: Upload flashable zip
+        if: ${{ inputs.mode == 'rom' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: rom-${{ github.run_number }}
+          if-no-files-found: error
+          compression-level: 0
+          path: un1ca/out/*.zip

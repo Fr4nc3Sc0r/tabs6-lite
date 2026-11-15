@@ -1,0 +1,4 @@
+id=exynos9611_kernel
+name=Exynos 9611 kernel (Linux 4.14 with Android 17 backports)
+author=tabs6-lite
+description=Replaces the stock Android 13 kernel Image (which cannot boot an Android 16/17 userspace: no eBPF backports, capabilities stop at 37) with one built from source from the community universal9611 tree (lineage-24.0 branch, pinned commit), plus the patches in kernel-patches/. Only the kernel Image inside boot.img is swapped: stock ramdisk, DTB, header and dtbo.img are kept.

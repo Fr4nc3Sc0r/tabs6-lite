@@ -1,0 +1,4 @@
+# Kconfig overrides merged on top of exynos9611-<codename>_defconfig.
+# Keep this list short: every line here is a deviation from a tree that is
+# known to boot Android 17 (LineageOS 24.0) on this SoC.
+CONFIG_LOCALVERSION="-tabs6lite"

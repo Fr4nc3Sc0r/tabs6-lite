@@ -1,0 +1,4 @@
+id=gta4xlwifi_storage
+name=Galaxy Tab S6 Lite: userdata encryption policy
+author=tabs6-lite
+description=Removes file based and metadata encryption from the userdata entry of the vendor fstab, as the Exynos 990 and A51 ports do: the stock Keymaster 4 TEE binds keys to the stock OS version/patch level and a One UI 9 system on top of it cannot be relied on to unlock them. Set TABS6_KEEP_ENCRYPTION=true to keep the stock entry.
