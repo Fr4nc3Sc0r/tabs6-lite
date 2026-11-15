@@ -47,7 +47,9 @@ Requisiti: Linux x86_64 (Ubuntu 24.04 è quello provato dalla base), ~80 GB di
 disco libero, 16 GB di RAM, connessione veloce (~15 GB di firmware).
 
 ```bash
-sudo apt install 7zip attr bc binutils bison ccache clang ffmpeg file flex git libbrotli-dev \
+sudo apt install 7zip attr bc binutils bison brotli build-essential ccache clang cmake cpio ffmpeg \
+  file flex fuse2fs fuse3 \
+  git golang libbrotli-dev liblz4-dev libudev-dev ninja-build pkg-config zip zstd \
   libbz2-dev libelf-dev libgtest-dev libprotobuf-dev libunwind-dev libpcre2-dev \
   libssl-dev libxml2-utils libzstd-dev lld llvm lz4 openjdk-17-jdk \
   protobuf-compiler python3-venv rsync webp

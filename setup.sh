@@ -61,6 +61,17 @@ rsync -a "$HERE/overlay/target/gta4xlwifi/" "$BASE_DIR/target/gta4xlwifi/"
 mkdir -p "$BASE_DIR/tabs6-tools"
 rsync -a --delete "$HERE/tools/" "$BASE_DIR/tabs6-tools/"
 
+log "Fixing base scripts"
+# download_fw.sh keeps IMEI/SERIAL_NO from the previous firmware of the loop:
+# the source phone's IMEI would be sent for the tablet too, and samloader
+# prefers it over the serial (FUS then answers 408). Reset both per firmware.
+DOWNLOAD_FW="$BASE_DIR/scripts/download_fw.sh"
+if ! grep -q 'IMEI=""; SERIAL_NO=""; PARSE_FIRMWARE_STRING' "$DOWNLOAD_FW"; then
+    sed -i 's/^    PARSE_FIRMWARE_STRING "\$i" || exit 1$/    IMEI=""; SERIAL_NO=""; PARSE_FIRMWARE_STRING "$i" || exit 1/' "$DOWNLOAD_FW"
+    grep -q 'IMEI=""; SERIAL_NO=""; PARSE_FIRMWARE_STRING' "$DOWNLOAD_FW" \
+        || { echo "Could not patch $DOWNLOAD_FW (base changed?)" >&2; exit 1; }
+fi
+
 cat << MSG
 
 Base tree ready in: $BASE_DIR

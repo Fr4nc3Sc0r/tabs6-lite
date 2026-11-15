@@ -23,7 +23,7 @@ Documento vivo: aggiornalo a ogni tentativo. È la memoria del progetto.
 | Cosa | Perché | Quando si saprà |
 |---|---|---|
 | **La ROM completa non è mai stata costruita** | Nell'ambiente in cui è stato scritto il repository il download dei firmware Samsung non era consentito | Prima esecuzione di `./build.sh` o del workflow |
-| Valori `[VERIFY]` di `config.sh` | Come sopra | Report di `--probe-only` |
+| I valori `[VERIFY]` di `config.sh` che il probe non controlla | Il probe non li può controllare: vedi attività aperta 1 | Decompilazione di `framework.jar`/`services.jar` stock |
 | La ROM entra in 6,13 GiB | Dipende dal firmware reale | Prima build completa |
 | **Il tablet si avvia** | Nessun test su hardware | Primo flash |
 | Funzionamento di Wi-Fi, audio, fotocamera, S Pen, sensori, DeX | Idem | Dopo il primo avvio |
@@ -31,12 +31,21 @@ Documento vivo: aggiornalo a ogni tentativo. È la memoria del progetto.
 
 ## Roadmap
 
-### Fase A — Probe (nessun rischio per il tablet)
-- [ ] Impostare il secret `TABS6_SERIAL`
-- [ ] Eseguire `mode = probe`
-- [ ] Portare a zero i `FAIL` e i `WARN` di `verify_target-report.md`
-- [ ] Annotare qui: nome del gruppo `super`, numero di HAL a 32/64 bit,
-      presenza di `portrait_data`, elenco policy SDHMS
+### Fase A — Probe (nessun rischio per il tablet) — completata il 15 novembre 2026
+- [x] Seriale fornito (probe eseguito in locale; il secret `TABS6_SERIAL` serve solo per GitHub Actions)
+- [x] Eseguire il probe (`./build.sh --probe-only`)
+- [x] Portare a zero i `FAIL` e i `WARN` di `verify_target-report.md` (0 FAIL, 0 WARN)
+- [x] Risultati del probe sul firmware stock `P610XXS7FYD1/P610OXM7FYD1`:
+  - gruppo `super`: `group_basic` (6 580 862 976 byte; `super` 6 585 057 280), partizioni
+    logiche `system vendor product odm`
+  - HAL in `/vendor/bin/hw`: 39 a 64 bit, 5 a 32 bit (vedi attività aperta 3)
+  - `cameradata/portrait_data`: presente (l'attività aperta 2 non serve)
+  - policy SIOP stock: `siop_gta4xl_exynos9610`; l'elenco delle policy SDHMS non è
+    stato estratto (richiede di decompilare l'app SDHMS)
+  - boot: header v2, patch level 2025-04, nessun modulo kernel nel vendor
+  - corretti in `config.sh`: luminosità automatica `3` → `2`, RecordAlive `none` → `07010`;
+    doppio altoparlante confermato `true` da `AUDIO_NUMBER_OF_SPEAKER=2` (il firmware
+    non ha più la voce `AUDIO_SUPPORT_DUAL_SPEAKER`)
 
 ### Fase B — Prima build completa
 - [ ] `mode = rom`; risolvere gli arresti (vedi troubleshooting, Fase 0)
@@ -110,3 +119,4 @@ Aggiungi una riga per ogni build/flash.
 | Data | Commit | Build | Esito | Fase raggiunta | Note / log |
 |---|---|---|---|---|---|
 | 2026-11-15 | iniziale | solo kernel | ok | — | Kernel 4.14.357 compilato, modulo boot provato con immagine di test |
+| 2026-11-15 | cfd0c90 + correzioni | probe | ok | Fase A | Firmware S942BXXS6BZK1 e P610XXS7FYD1 scaricati ed estratti; verifica 0 FAIL / 0 WARN. Corretti: dipendenze host mancanti in docs/03, identità git in `build.sh`, IMEI non azzerato in `download_fw.sh` della base (FUS 408) |

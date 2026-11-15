@@ -83,7 +83,11 @@ check WARN "mDNIe hardware (LCD_SUPPORT_MDNIE_HW)" "$TARGET_LCD_SUPPORT_MDNIE_HW
 check WARN "Luminosita automatica (LCD_CONFIG_CONTROL_AUTO_BRIGHTNESS)" "$TARGET_LCD_CONFIG_CONTROL_AUTO_BRIGHTNESS" "$(stock_sff SEC_FLOATING_FEATURE_LCD_CONFIG_CONTROL_AUTO_BRIGHTNESS)"
 STOCK_HFR="$(stock_sff SEC_FLOATING_FEATURE_LCD_CONFIG_HFR_MODE)"
 check WARN "Refresh rate variabile (LCD_CONFIG_HFR_MODE)" "$TARGET_LCD_CONFIG_HFR_MODE" "${STOCK_HFR:-0}"
-check WARN "Doppio altoparlante (AUDIO_SUPPORT_DUAL_SPEAKER)" "$TARGET_AUDIO_SUPPORT_DUAL_SPEAKER" "$(bool_sff SEC_FLOATING_FEATURE_AUDIO_SUPPORT_DUAL_SPEAKER)"
+# Older firmware has AUDIO_SUPPORT_DUAL_SPEAKER, newer ones only the speaker count
+STOCK_DUAL_SPK="$(bool_sff SEC_FLOATING_FEATURE_AUDIO_SUPPORT_DUAL_SPEAKER)"
+STOCK_SPK_COUNT="$(stock_sff SEC_FLOATING_FEATURE_AUDIO_NUMBER_OF_SPEAKER)"
+[[ "$STOCK_SPK_COUNT" =~ ^[0-9]+$ ]] && [ "$STOCK_SPK_COUNT" -ge 2 ] && STOCK_DUAL_SPK=true
+check WARN "Doppio altoparlante (AUDIO_SUPPORT_DUAL_SPEAKER / NUMBER_OF_SPEAKER)" "$TARGET_AUDIO_SUPPORT_DUAL_SPEAKER" "$STOCK_DUAL_SPK"
 STOCK_CAMERAX="$(stock_prop system/system/build.prop ro.camerax.extensions.enabled)"
 check WARN "CameraX extensions" "$TARGET_CAMERA_SUPPORT_CAMERAX_EXTENSION" "${STOCK_CAMERAX:-false}"
 STOCK_REC="$(find "$STOCK_DIR/vendor/lib" "$STOCK_DIR/vendor/lib64" -maxdepth 1 -name "lib_SamsungRec_*.so" -printf "%f\n" 2> /dev/null | sed -E "s/lib_SamsungRec_(.*)\.so/\1/" | sort -u | tr "\n" " " | sed "s/ $//")"

@@ -42,6 +42,13 @@ MSG
 fi
 export TABS6_SERIAL TABS6_CSC="${TABS6_CSC:-ITV}"
 
+# The base applies patches to its bundled tools with "git am", which needs a
+# committer identity. Provide a throwaway one when the machine has none.
+if ! git config user.name > /dev/null || ! git config user.email > /dev/null; then
+    export GIT_AUTHOR_NAME="tabs6-lite build" GIT_AUTHOR_EMAIL="build@localhost"
+    export GIT_COMMITTER_NAME="$GIT_AUTHOR_NAME" GIT_COMMITTER_EMAIL="$GIT_AUTHOR_EMAIL"
+fi
+
 "$HERE/setup.sh"
 
 cd "$BASE_DIR"
