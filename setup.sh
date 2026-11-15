@@ -190,6 +190,23 @@ patch_base "$BASE_DIR/scripts/build_fs_image.sh" \
     '            BUILD_CMD+="-z \"lz4hc,9\" "' \
     '            BUILD_CMD+="-z \"lz4hc,9\" -C \"65536\" "'
 
+# S Pen blobs: for an S Pen target and a source without S Pen (the S26) the base
+# replaces libandroid_runtime.so with a prebuilt taken from the Galaxy S22 Ultra.
+# That prebuilt is an Android 16 build: under the Android 17 system it asks for
+# android.media.audio.common.types-V4-cpp.so, which does not exist (the system
+# has V5), so app_process64 cannot be linked: no zygote, guaranteed bootloop
+# (found by starting the binaries of the built ROM under qemu-user). Keep the
+# runtime library of the source firmware; the rest of the S Pen files (apps,
+# libsmpsft, pen sounds) are still added. The two lines below turn the two
+# libandroid_runtime.so additions into repetitions of the libsmpsft ones.
+SPEN_PATCH="$BASE_DIR/unica/patches/spen/customize.sh"
+patch_base "$SPEN_PATCH" \
+    '            "system" "system/lib/libandroid_runtime.so" 0 0 644 "u:object_r:system_lib_file:s0"' \
+    '            "system" "system/lib/libsmpsft.smps.samsung.so" 0 0 644 "u:object_r:system_lib_file:s0" # was libandroid_runtime.so'
+patch_base "$SPEN_PATCH" \
+    '            "system" "system/lib64/libandroid_runtime.so" 0 0 644 "u:object_r:system_lib_file:s0"' \
+    '            "system" "system/lib64/libsmpsft.smps.samsung.so" 0 0 644 "u:object_r:system_lib_file:s0" # was libandroid_runtime.so'
+
 cat << MSG
 
 Base tree ready in: $BASE_DIR
