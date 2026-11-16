@@ -14,3 +14,9 @@ SEC_FLOATING_FEATURE_SETTINGS_CONFIG_BRAND_NAME=Galaxy Tab S6 Lite
 # tablet has an LCD panel and no always-on display: its stock firmware does not
 # declare this feature at all, so drop it (it also needs phone-only resources).
 SEC_FLOATING_FEATURE_FRAMEWORK_CONFIG_AOD_ITEM=
+
+# S Pen direct writing (write with the pen in any text field). The base treats
+# this feature as deprecated and drops it, but the One UI 9 framework still
+# reads it (ViewRune.SUPPORT_DIRECT_WRITING), and so do SystemUI and
+# SettingsProvider. Stock value of the tablet.
+SEC_FLOATING_FEATURE_SIP_SUPPORT_DIRECT_WRITING_ENABLE=TRUE

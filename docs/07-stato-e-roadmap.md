@@ -123,6 +123,38 @@ Difetti trovati così e corretti (ognuno avrebbe richiesto un flash per scoprirl
   l'unico percorso con cui il driver Mali del vendor è stato distribuito. Che Vulkan
   fallisca sul tablet vero non è stato osservato: è una scelta prudente
 
+Altre verifiche fatte da `tools/emu_check.sh` (16 novembre 2026):
+
+- **bytecode**: il `dex2oat` della ROM, eseguito in emulazione, verifica senza classi
+  respinte l'intero boot class path (55 jar, incluso il `framework.jar` modificato),
+  i 22 jar del server di sistema (`services.jar` compreso) e i 14 APK ricostruiti
+  dalle patch (SystemUI, Impostazioni, SettingsProvider...). 17 metodi falliscono
+  solo la verifica dei lock: girano più lenti, non è un errore
+- **client degli HAL**: dei 58 HAL dichiarati dal vendor, tutti quelli di base
+  (grafica, keymaster, gatekeeper, sensori, Wi-Fi, Bluetooth, fotocamera, GNSS,
+  audio 6.0, input...) hanno ancora un client in Android 17. Senza client restano
+  ANT+, `hqm`, `ofi` e quattro servizi di sicurezza Samsung serviti in HIDL mentre
+  il sistema li cerca in AIDL (`skpm`, `widevine.keyprov`, `tlc.iccc`, `tlc.ucm`):
+  funzioni Knox e provisioning Widevine non disponibili, nessun effetto atteso
+  sull'avvio
+- **device tree**: ogni dispositivo descritto nel device tree stock (dtbo) ha un
+  driver nel sorgente del kernel usato
+
+**S Pen** (verifica statica; il digitalizzatore non è emulabile):
+
+- kernel: driver Wacom W9019 abilitato, corrisponde al nodo `wacom,w90xx` del device
+  tree stock; registra l'input `sec_e-pen`, per cui il sistema ha `sec_e-pen.idc`
+- framework: One UI 9 dell'S26 contiene `SpenGestureManagerService` e il resto del
+  codice S Pen, attivato da `com.sec.feature.spen_usp` (dichiarata, livello 45 come
+  stock); l'HAL `sysinput` del vendor ha un client
+- app: Air Command, Smart Select, lente, Live Drawing, Air Glance (prebuilt della
+  base, target SDK 35); le classi di sistema che usano esistono in One UI 9
+- scrittura diretta nei campi di testo: la base scartava la funzione
+  `SIP_SUPPORT_DIRECT_WRITING_ENABLE` come obsoleta, ma One UI 9 la legge ancora
+  (`ViewRune.SUPPORT_DIRECT_WRITING`): riattivata in `sff.sh` col valore stock
+- difetto noto: suoni di scrittura (`libsmpsft`), vedi sotto
+- Samsung Notes non è nel firmware sorgente: va installata dal Galaxy Store
+
 Verificato nel tablet virtuale, cioè eseguito davvero sul kernel 4.14 del tablet:
 init di primo stadio (ramdisk stock Android 13), montaggio delle immagini EROFS con
 cluster da 64 KiB, compilazione e caricamento della policy SELinux nel kernel,

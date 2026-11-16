@@ -9,12 +9,15 @@
 #   1. the ROM's own linkerconfig generates the linker configuration
 #   2. the ROM's own secilc compiles system + vendor SELinux policy, as init
 #      does at boot (the precompiled policy never matches on a port)
-#   3. every label used in the *_contexts files must exist in the policy
+#   3. every label used in the *_contexts files must exist in the policy;
+#      every HAL of the vendor manifest must still have a client in the system
 #   4. every executable of system and vendor is started with LD_BIND_NOW=1:
 #      a missing library or symbol shows up as "CANNOT LINK EXECUTABLE"
 #   5. every library (also the dlopen()ed ones) must find its dependencies
 #      and symbols; for the vendor the result is compared with the same check
 #      on the stock firmware, to list only what the port broke
+#   6. the ROM's own dex2oat verifies the bytecode of the boot class path, of
+#      the system server jars and of the APKs rebuilt by the patches
 #
 # Usage: tools/emu_check.sh            (after ./build.sh, needs sudo)
 # Needs: qemu-user-static (with binfmt), python3, binutils, e2fsprogs.
@@ -37,7 +40,8 @@ done
 teardown() {
     mount | awk -v r="$R" '$3 ~ "^"r {print $3}' | sort -r | while read -r m; do sudo umount "$m" || true; done
 }
-trap teardown EXIT
+# EMU_KEEP=1 leaves the chroot mounted at the end (un1ca/out/emu/rootfs), for manual experiments
+[ "${EMU_KEEP:-}" ] || trap teardown EXIT
 teardown
 mkdir -p "$R" "$EMU/apexes" "$EMU/stock/apex"
 
@@ -74,6 +78,7 @@ python3 "$E/mkprops.py" "$R" "$EMU/props.bin" > /dev/null
 sudo cp "$EMU/props.bin" "$R/dev/__properties__"; sudo chown 0:0 "$R/dev/__properties__"; sudo chmod 444 "$R/dev/__properties__"
 [[ "$(sudo chroot "$R" /system/bin/getprop ro.build.version.release 2> /dev/null)" ]] || { echo "The ROM's getprop does not run under qemu-user" >&2; exit 1; }
 
+if [ "${EMU_ONLY_ROOTFS:-}" ]; then sudo chroot "$R" /apex/com.android.runtime/bin/linkerconfig --target /linkerconfig > /dev/null 2>&1 || true; echo "Chroot ready: $R"; exit 0; fi
 {
 echo "# Verifica della ROM in emulazione (qemu-user)"
 echo
@@ -99,6 +104,9 @@ fi
 echo
 echo "## 3. Etichette SELinux"
 echo '```'; python3 "$E/ctxcheck.py" "$R" "$VERS"; echo '```'
+echo
+echo "## 3b. Client dei servizi hardware (HAL) del vendor"
+echo '```'; python3 "$E/halcheck.py" "$W" "$EMU/apexes"; echo '```'
 echo
 echo "## 4. Avvio dei programmi con LD_BIND_NOW=1"
 "$E/linktest.sh" "$R" /vendor/bin/hw /vendor/bin /odm/bin > "$EMU/linktest_vendor.txt" 2>&1
@@ -135,6 +143,12 @@ if [ "$STOCK" ]; then
     done
     echo '```'
 fi
+echo
+echo "## 6. Verifica del bytecode con il dex2oat della ROM"
+# the APKs and jars the patches rebuilt with apktool are listed in the apktool work dir
+PATCHED=()
+while IFS= read -r d; do PATCHED+=("/${d#"$OUT/target/gta4xlwifi/apktool/"}"); done < <(find "$OUT/target/gta4xlwifi/apktool" -mindepth 3 -maxdepth 4 -type d -name "*.apk" 2> /dev/null)
+"$E/dexverify.sh" "$R" "$EMU" "${PATCHED[@]}"
 echo
 echo "Fallimenti nel sistema (64 bit):"
 echo '```'; grep "^FAIL" "$EMU/sym_system64.txt" | cut -c1-240 | head -n 40; echo '```'
